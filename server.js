@@ -8,10 +8,23 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // CORS設定
+const allowedOrigins = [
+    'https://miyagi-sensei-098.github.io',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+];
+
 const corsOptions = {
-    origin: '*',
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.log('Blocked by CORS:', origin);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,
     optionsSuccessStatus: 204
 };

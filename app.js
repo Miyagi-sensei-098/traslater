@@ -1,5 +1,6 @@
 // バックエンドAPIのエンドポイント
-const API_BASE_URL = 'https://translater-api.vercel.app';
+const API_BASE_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://translater-api.vercel.app';
+console.log('API Base URL:', API_BASE_URL);
 
 // 言語コードと表示名のマッピング
 const LANGUAGES = {
