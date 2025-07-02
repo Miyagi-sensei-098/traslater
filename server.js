@@ -19,22 +19,28 @@ const allowedOrigins = [
     'http://127.0.0.1:3000'
 ];
 
-// すべてのリクエストに対してCORSヘッダーを設定
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.header('Access-Control-Allow-Credentials', true);
-    
-    // プリフライトリクエストの処理
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-    next();
-});
+// CORS設定
+const allowedOrigins = [
+    'https://miyagi-sensei-098.github.io',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+];
+
+const corsOptions = {
+    origin: function (origin, callback) {
+        // allowedOriginsのリストにあるオリジンか、(Postmanなど)オリジンがないリクエストを許可する
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: "GET,POST,OPTIONS",
+    credentials: true,
+};
+
+// corsミドルウェアを使用する
+app.use(cors(corsOptions));
 
 // ミドルウェアの設定
 app.use(express.json());
@@ -60,12 +66,7 @@ app.post('/api/translate', async (req, res) => {
         body: req.body
     });
 
-    // CORSプリフライトリクエストの処理
-    if (req.method === 'OPTIONS') {
-        log('CORSプリフライトリクエストを処理');
-        return res.status(200).end();
-    }
-
+    
     try {
         const { text, targetLang, sourceLang = 'auto' } = req.body;
         
