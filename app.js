@@ -43,8 +43,7 @@ async function translateText(text, targetLang, sourceLang = 'auto') {
         const response = await fetch(`${API_BASE_URL}/api/translate`, {
             method: 'POST',
             mode: 'cors',
-            cache: 'no-cache',
-            credentials: 'same-origin',
+            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
@@ -54,8 +53,6 @@ async function translateText(text, targetLang, sourceLang = 'auto') {
         
         console.log(`レスポンスステータス: ${response.status} ${response.statusText}`);
         
-        // レスポンスの内容をテキストとして取得
-        const responseText = await response.text();
         console.log('レスポンス本文:', responseText);
         
         if (!response.ok) {

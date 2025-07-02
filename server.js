@@ -3,6 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const path = require('path');
+const dotenv = require('dotenv');
+
+// 環境変数の読み込み
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,30 +14,29 @@ const PORT = process.env.PORT || 3000;
 // CORS設定
 const allowedOrigins = [
     'https://miyagi-sensei-098.github.io',
+    'https://miyagi-sensei-098.github.io/traslater',
     'http://localhost:3000',
     'http://127.0.0.1:3000'
 ];
 
-const corsOptions = {
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            console.log('Blocked by CORS:', origin);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    credentials: true,
-    optionsSuccessStatus: 204
-};
-
-// プリフライトリクエストの処理
-app.options('*', cors(corsOptions));
+// すべてのリクエストに対してCORSヘッダーを設定
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', true);
+    
+    // プリフライトリクエストの処理
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
+});
 
 // ミドルウェアの設定
-app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
