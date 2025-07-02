@@ -1,7 +1,5 @@
-// バックエンドAPIのエンドポイント（GitHub Pages用に固定URLを設定）
-const API_BASE_URL = 'https://your-backend-url.vercel.app'; // バックエンドをデプロイしたURLに変更してください
-// ローカルでテストする場合は以下のコメントを外してください
-// const API_BASE_URL = 'http://localhost:3000';
+// バックエンドAPIのエンドポイント
+const API_BASE_URL = 'https://translater-api.vercel.app';
 
 // 言語コードと表示名のマッピング
 const LANGUAGES = {
