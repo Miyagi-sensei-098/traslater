@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4か国語同時翻訳ツール</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>4か国語同時翻訳ツール 🌐</h1>
+        </header>
+
+        <main>
+            <section class="input-section">
+                <div class="input-container">
+                    <div class="language-selector">
+                        <label for="sourceLanguage">翻訳元の言語:</label>
+                        <select id="sourceLanguage">
+                            <option value="auto">自動検出</option>
+                            <option value="ja">日本語</option>
+                            <option value="en">英語</option>
+                            <option value="es">スペイン語</option>
+                            <option value="pt">ポルトガル語</option>
+                        </select>
+                    </div>
+                    <textarea 
+                        id="sourceText" 
+                        placeholder="翻訳したいテキストを入力してください..."
+                        rows="6"
+                    ></textarea>
+                    <button id="translateBtn">翻訳する</button>
+                </div>
+            </section>
+
+            <section class="output-section">
+                <div class="translation-cards">
+                    <!-- Japanese Card -->
+                    <div class="card" data-lang="ja">
+                        <div class="card-header">
+                            <h3>🇯🇵 日本語</h3>
+                            <button class="copy-btn" data-lang="ja">コピー</button>
+                        </div>
+                        <div class="translated-text" id="ja-text"></div>
+                    </div>
+
+                    <!-- English Card -->
+                    <div class="card" data-lang="en">
+                        <div class="card-header">
+                            <h3>🇺🇸 英語</h3>
+                            <button class="copy-btn" data-lang="en">コピー</button>
+                        </div>
+                        <div class="translated-text" id="en-text"></div>
+                    </div>
+
+                    <!-- Spanish Card -->
+                    <div class="card" data-lang="es">
+                        <div class="card-header">
+                            <h3>🇪🇸 スペイン語</h3>
+                            <button class="copy-btn" data-lang="es">コピー</button>
+                        </div>
+                        <div class="translated-text" id="es-text"></div>
+                    </div>
+
+                    <!-- Portuguese Card -->
+                    <div class="card" data-lang="pt">
+                        <div class="card-header">
+                            <h3>🇧🇷 ポルトガル語</h3>
+                            <button class="copy-btn" data-lang="pt">コピー</button>
+                        </div>
+                        <div class="translated-text" id="pt-text"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
