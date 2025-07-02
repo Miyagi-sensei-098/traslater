@@ -9,11 +9,15 @@ const PORT = process.env.PORT || 3000;
 
 // CORS設定
 const corsOptions = {
-    origin: '*', // 本番環境では特定のオリジンに制限することを推奨
+    origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    optionsSuccessStatus: 200
+    credentials: true,
+    optionsSuccessStatus: 204
 };
+
+// プリフライトリクエストの処理
+app.options('*', cors(corsOptions));
 
 // ミドルウェアの設定
 app.use(cors(corsOptions));
@@ -28,105 +32,171 @@ app.get('/', (req, res) => {
 
 // 翻訳APIのエンドポイント
 app.post('/api/translate', async (req, res) => {
-    console.log('翻訳リクエスト受信:', {
-        body: req.body,
-        headers: req.headers
+    const requestId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    const log = (message, data = {}) => {
+        console.log(`[${new Date().toISOString()}] [${requestId}] ${message}`, JSON.stringify(data));
+    };
+
+    log('翻訳リクエスト受信', {
+        method: req.method,
+        url: req.originalUrl,
+        headers: req.headers,
+        body: req.body
     });
+
+    // CORSプリフライトリクエストの処理
+    if (req.method === 'OPTIONS') {
+        log('CORSプリフライトリクエストを処理');
+        return res.status(200).end();
+    }
 
     try {
         const { text, targetLang, sourceLang = 'auto' } = req.body;
         
+        // 必須パラメータの検証
         if (!text || !targetLang) {
-            console.error('パラメータ不足:', { text, targetLang });
-            return res.status(400).json({ 
+            const error = {
                 error: 'テキストとターゲット言語を指定してください',
-                received: { text: !!text, targetLang: !!targetLang }
-            });
+                received: { 
+                    text: !!text, 
+                    targetLang: !!targetLang,
+                    sourceLang: sourceLang
+                }
+            };
+            log('パラメータ検証エラー', error);
+            return res.status(400).json(error);
         }
 
-        const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
-        const prompt = `Translate the following text from ${sourceLang === 'auto' ? 'auto-detected language' : sourceLang} to ${targetLang}: ${text}`;
-        
-        console.log('Gemini APIリクエスト:', {
-            url: apiUrl,
-            prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : '')
-        });
-
+        // APIキーの検証
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
-            console.error('APIキーが設定されていません');
-            return res.status(500).json({ 
-                error: 'サーバー設定エラー: APIキーが設定されていません' 
+            const error = { error: 'サーバー設定エラー: APIキーが設定されていません' };
+            log('APIキーエラー', error);
+            return res.status(500).json(error);
+        }
+
+        // プロンプトの作成
+        const prompt = `Translate the following text from ${sourceLang === 'auto' ? 'auto-detected language' : sourceLang} to ${targetLang}: ${text}`;
+        const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+        
+        log('Gemini APIリクエスト作成', {
+            url: apiUrl,
+            promptLength: prompt.length,
+            sourceLang,
+            targetLang
+        });
+
+        // Gemini APIへのリクエスト
+        const startTime = Date.now();
+        let response;
+        try {
+            response = await fetch(`${apiUrl}?key=${apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.2,
+                        topP: 0.8,
+                        topK: 40
+                    }
+                }),
+                timeout: 30000 // 30秒のタイムアウト
+            });
+        } catch (fetchError) {
+            log('Gemini APIリクエストエラー', {
+                error: fetchError.message,
+                stack: fetchError.stack,
+                name: fetchError.name
+            });
+            return res.status(500).json({
+                error: '翻訳サービスに接続できませんでした',
+                details: fetchError.message
             });
         }
-        
-        const response = await fetch(`${apiUrl}?key=${apiKey}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }]
-            })
-        });
 
+        const responseTime = Date.now() - startTime;
         const responseText = await response.text();
-        console.log('Gemini APIレスポンス:', {
+        
+        log('Gemini APIレスポンス受信', {
             status: response.status,
             statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries()),
-            body: responseText.substring(0, 500) + (responseText.length > 500 ? '...' : '')
+            responseTime: `${responseTime}ms`,
+            responseLength: responseText.length
         });
 
+        // エラーレスポンスの処理
         if (!response.ok) {
             let errorData;
             try {
-                errorData = JSON.parse(responseText);
+                errorData = responseText ? JSON.parse(responseText) : {};
             } catch (e) {
-                errorData = { error: '無効なJSONレスポンス', details: responseText };
+                errorData = { 
+                    error: '無効なJSONレスポンス',
+                    details: responseText.substring(0, 500)
+                };
             }
-            console.error('Gemini APIエラー:', errorData);
-            return res.status(response.status).json({ 
-                error: '翻訳APIでエラーが発生しました',
+            
+            log('Gemini APIエラー', {
+                status: response.status,
+                error: errorData,
+                headers: Object.fromEntries(response.headers.entries())
+            });
+            
+            return res.status(response.status).json({
+                error: '翻訳サービスでエラーが発生しました',
+                status: response.status,
                 details: errorData
             });
         }
 
+        // レスポンスのパース
         let data;
         try {
-            data = JSON.parse(responseText);
-        } catch (e) {
-            console.error('JSONパースエラー:', e);
-            return res.status(500).json({ 
-                error: 'APIレスポンスの解析に失敗しました',
-                details: e.message
+            data = responseText ? JSON.parse(responseText) : {};
+        } catch (parseError) {
+            log('JSONパースエラー', {
+                error: parseError.message,
+                response: responseText.substring(0, 500)
+            });
+            return res.status(500).json({
+                error: '翻訳結果の解析に失敗しました',
+                details: parseError.message
             });
         }
 
+        // 翻訳結果の抽出
         const translatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || text;
         
-        console.log('翻訳成功:', {
+        log('翻訳成功', {
             originalLength: text.length,
-            translatedLength: translatedText.length
+            translatedLength: translatedText.length,
+            responseTime: `${responseTime}ms`
         });
         
+        // 成功レスポンス
         res.json({
             translatedText: translatedText.trim(),
-            detectedSourceLanguage: sourceLang === 'auto' ? 'auto-detected' : sourceLang
+            detectedSourceLanguage: sourceLang === 'auto' ? 'auto-detected' : sourceLang,
+            requestId: requestId
         });
+        
     } catch (error) {
-        console.error('翻訳処理エラー:', {
+        log('予期せぬエラー', {
             message: error.message,
             stack: error.stack,
             name: error.name
         });
         
-        res.status(500).json({ 
-            error: '翻訳処理中にエラーが発生しました',
+        res.status(500).json({
+            error: '翻訳処理中に予期せぬエラーが発生しました',
+            requestId: requestId,
             details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }

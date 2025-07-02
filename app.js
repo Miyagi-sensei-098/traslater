@@ -1,5 +1,7 @@
-// バックエンドAPIのエンドポイント
-const API_BASE_URL = window.location.origin;
+// バックエンドAPIのエンドポイント（GitHub Pages用に固定URLを設定）
+const API_BASE_URL = 'https://your-backend-url.vercel.app'; // バックエンドをデプロイしたURLに変更してください
+// ローカルでテストする場合は以下のコメントを外してください
+// const API_BASE_URL = 'http://localhost:3000';
 
 // 言語コードと表示名のマッピング
 const LANGUAGES = {
@@ -29,37 +31,86 @@ async function translateText(text, targetLang, sourceLang = 'auto') {
         return text;
     }
     
+    // リクエストボディの作成
+    const requestBody = {
+        text: text,
+        targetLang: targetLang,
+        sourceLang: sourceLang
+    };
+    
+    console.log('リクエストボディ:', JSON.stringify(requestBody, null, 2));
+    
     try {
         const response = await fetch(`${API_BASE_URL}/api/translate`, {
             method: 'POST',
+            mode: 'cors',
+            cache: 'no-cache',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
-            body: JSON.stringify({
-                text,
-                targetLang,
-                sourceLang
-            })
+            body: JSON.stringify(requestBody)
         });
         
-        console.log(`レスポンスステータス: ${response.status}`);
+        console.log(`レスポンスステータス: ${response.status} ${response.statusText}`);
+        
+        // レスポンスの内容をテキストとして取得
+        const responseText = await response.text();
+        console.log('レスポンス本文:', responseText);
         
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('APIエラー:', errorData);
-            throw new Error(errorData.error || `HTTPエラー: ${response.status}`);
+            let errorData;
+            try {
+                errorData = responseText ? JSON.parse(responseText) : {};
+            } catch (e) {
+                errorData = { error: '無効なJSONレスポンス', details: responseText };
+            }
+            console.error('APIエラー詳細:', {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorData,
+                headers: Object.fromEntries(response.headers.entries())
+            });
+            throw new Error(errorData.error || `HTTPエラー: ${response.status} ${response.statusText}`);
         }
         
-        const data = await response.json();
+        // レスポンスをJSONとしてパース
+        let data;
+        try {
+            data = responseText ? JSON.parse(responseText) : {};
+        } catch (e) {
+            console.error('JSONパースエラー:', e, 'レスポンス:', responseText);
+            throw new Error('サーバーからの応答を処理できませんでした');
+        }
+        
         console.log('翻訳結果:', data);
-        return data.translatedText || '翻訳結果が空です';
+        
+        if (!data.translatedText) {
+            console.warn('翻訳結果が空です:', data);
+            return '翻訳結果が空です';
+        }
+        
+        return data.translatedText;
     } catch (error) {
         console.error('翻訳エラー詳細:', {
             message: error.message,
             stack: error.stack,
-            name: error.name
+            name: error.name,
+            timestamp: new Date().toISOString()
         });
-        return `翻訳エラー: ${error.message}`;
+        
+        // エラーメッセージをユーザーフレンドリーに
+        let errorMessage = '翻訳中にエラーが発生しました';
+        if (error.message.includes('Failed to fetch')) {
+            errorMessage = 'サーバーに接続できません。インターネット接続を確認してください。';
+        } else if (error.message.includes('500')) {
+            errorMessage = 'サーバーエラーが発生しました。しばらくしてからお試しください。';
+        } else if (error.message.includes('405')) {
+            errorMessage = 'リクエストが拒否されました。ページをリロードしてください。';
+        }
+        
+        return `エラー: ${errorMessage}`;
     }
 }
 
